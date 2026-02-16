@@ -1,3 +1,4 @@
+[README (2).md](https://github.com/user-attachments/files/25344621/README.2.md)
 # AzureHound Permission Validator
 
 PowerShell script to validate all required permissions for an [AzureHound Enterprise](https://bloodhound.specterops.io/install-data-collector/install-azurehound/azure-configuration) service principal in one shot.
@@ -35,8 +36,8 @@ Install-Module Az.Accounts -Scope CurrentUser -Force
  AzureHound Permission Validator
 ====================================
 App Name:    AzureHound
-Object ID:   81ce11c1-c59a-442e-9fd8-90ae7108a4f1
-App ID:      9fd870cb-b741-4761-a860-25e46530925a
+Object ID:   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+App ID:      xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 === GRAPH API PERMISSIONS ===
 Permission              Type        Consented
@@ -53,7 +54,7 @@ Directory Readers 88d8e3e3-8f55-4a1e-953a-9b9898b8876b Active
 === AZURE RBAC ROLES ===
 RoleDefinitionName Scope
 ------------------ -----
-Reader             /subscriptions/ace9fd94-79b4-4d68-9916-c91bae1f5c49
+Reader             /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ====================================
  PERMISSION SUMMARY
