@@ -1,4 +1,4 @@
-[README (2).md](https://github.com/user-attachments/files/25344621/README.2.md)
+[README.md](https://github.com/user-attachments/files/25344756/README.md)
 # AzureHound Permission Validator
 
 PowerShell script to validate all required permissions for an [AzureHound Enterprise](https://bloodhound.specterops.io/install-data-collector/install-azurehound/azure-configuration) service principal in one shot.
@@ -17,6 +17,21 @@ Install-Module Microsoft.Graph.Authentication -Scope CurrentUser -Force
 Install-Module Microsoft.Graph.Identity.DirectoryManagement -Scope CurrentUser -Force
 Install-Module Az.Resources -Scope CurrentUser -Force
 Install-Module Az.Accounts -Scope CurrentUser -Force
+```
+
+## Execution Policy
+
+If you get the error `File cannot be loaded. The file is not digitally signed`, you need to adjust the PowerShell execution policy. Run one of the following:
+
+```powershell
+# Option 1 — Allow for current session only (resets when you close PowerShell)
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+
+# Option 2 — Allow for current user (persists)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Option 3 — Run the script directly without changing policy
+powershell -ExecutionPolicy Bypass -File .\AZ_Permissions-Test.ps1
 ```
 
 ## Usage
