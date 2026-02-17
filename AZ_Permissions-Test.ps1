@@ -3,25 +3,74 @@
 # https://bloodhound.specterops.io/install-data-collector/install-azurehound/azure-configuration
 
 param(
-    [string]$AppName = "AzureHound",
-    [string]$TenantId = ""
+    [string]$AppName  = "AzureHound",
+    [string]$TenantId = "",
+    [switch]$Skip                # Skip Connect-MgGraph and Connect-AzAccount if already authenticated
 )
 
-# Connect to Microsoft Graph
-Connect-MgGraph -NoWelcome -Scopes "Application.Read.All","RoleManagement.Read.Directory","Directory.Read.All"
+# ===================================================================
+# AUTHENTICATION
+# ===================================================================
 
-# Connect to Azure (bypass WAM broker issues)
-if ($TenantId) {
-    $env:AZURE_USE_DEVICE_CODE = "true"
-    Update-AzConfig -EnableLoginByWam $false -Scope Process
-    Connect-AzAccount -DeviceCode -TenantId $TenantId
-} else {
+if ($Skip) {
+    Write-Host ""
+    Write-Host "[SKIP] Authentication step bypassed - using existing session" -ForegroundColor Yellow
+    Write-Host "       Assumes: Connect-AzAccount and az login already completed" -ForegroundColor DarkGray
+    Write-Host ""
+    
+    # Verify existing sessions are valid before proceeding
+    Write-Host "Verifying existing sessions..." -ForegroundColor Cyan
+    
+    # Check Microsoft Graph session
     try {
+        $mgContext = Get-MgContext -ErrorAction Stop
+        if ($mgContext) {
+            Write-Host "  [OK] Microsoft Graph session active - Account: $($mgContext.Account)" -ForegroundColor Green
+        } else {
+            Write-Host "  [WARN] No active Microsoft Graph session found" -ForegroundColor Yellow
+            Write-Host "         Run: Connect-MgGraph -Scopes 'Application.Read.All','RoleManagement.Read.Directory','Directory.Read.All'" -ForegroundColor DarkGray
+        }
+    }
+    catch {
+        Write-Host "  [WARN] Could not verify Microsoft Graph session: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    # Check Azure session
+    try {
+        $azContext = Get-AzContext -ErrorAction Stop
+        if ($azContext) {
+            Write-Host "  [OK] Azure session active - Account: $($azContext.Account) | Tenant: $($azContext.Tenant.Id)" -ForegroundColor Green
+        } else {
+            Write-Host "  [WARN] No active Azure session found" -ForegroundColor Yellow
+            Write-Host "         Run: Connect-AzAccount" -ForegroundColor DarkGray
+        }
+    }
+    catch {
+        Write-Host "  [WARN] Could not verify Azure session: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
+    Write-Host ""
+}
+else {
+    # Connect to Microsoft Graph
+    Write-Host ""
+    Write-Host "Connecting to Microsoft Graph..." -ForegroundColor Cyan
+    Connect-MgGraph -NoWelcome -Scopes "Application.Read.All","RoleManagement.Read.Directory","Directory.Read.All"
+
+    # Connect to Azure (bypass WAM broker issues)
+    Write-Host "Connecting to Azure..." -ForegroundColor Cyan
+    if ($TenantId) {
         $env:AZURE_USE_DEVICE_CODE = "true"
         Update-AzConfig -EnableLoginByWam $false -Scope Process
-        Connect-AzAccount -DeviceCode
-    } catch {
-        Write-Host "  Azure connection failed. RBAC check will be skipped." -ForegroundColor Yellow
+        Connect-AzAccount -DeviceCode -TenantId $TenantId
+    } else {
+        try {
+            $env:AZURE_USE_DEVICE_CODE = "true"
+            Update-AzConfig -EnableLoginByWam $false -Scope Process
+            Connect-AzAccount -DeviceCode
+        } catch {
+            Write-Host "  Azure connection failed. RBAC check will be skipped." -ForegroundColor Yellow
+        }
     }
 }
 
