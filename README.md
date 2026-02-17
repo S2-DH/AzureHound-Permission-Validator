@@ -1,5 +1,5 @@
-[README.md](https://github.com/user-attachments/files/25362353/README.md)
-# 🔐 AzureHound Permission Validator
+[README.md](https://github.com/user-attachments/files/25362797/README.md)
+# 🔐 AzureHound Permission Validator v1.1
 
 **Validates all required Azure and Entra ID permissions for AzureHound Enterprise data collection**
 
@@ -7,18 +7,20 @@
 
 ## 📋 **Overview**
 
-This script checks that your AzureHound service principal has all the correct permissions configured in Azure and Entra ID. It validates Graph API permissions, Entra ID directory roles, and Azure RBAC roles in one quick run.
+This script checks that your AzureHound service principal has all the correct permissions configured. It validates Graph API permissions, Entra ID directory roles, and Azure RBAC roles — and now includes automatic prerequisite checks before running any tests.
 
 ### **What It Checks**
 
 | Check | What It Validates |
 |-------|------------------|
-| **Graph API Permissions** | Application-level permissions granted to the service principal |
+| **Execution Policy** | Warns if policy may block unsigned scripts |
+| **Required Modules** | Verifies all PowerShell modules are installed and up to date |
+| **Graph API Permissions** | Application permissions granted to the service principal |
 | **Entra ID Roles** | Directory roles assigned (including PIM assignments) |
 | **Azure RBAC Roles** | Subscription/resource-level role assignments |
-| **Permission Summary** | PASS/FAIL status for all required and optional permissions |
+| **Permission Summary** | PASS/FAIL for all required and optional permissions |
 
-### **Required Permissions It Validates**
+### **Required Permissions Validated**
 
 | Permission | Type | Required |
 |-----------|------|---------|
@@ -30,95 +32,145 @@ This script checks that your AzureHound service principal has all the correct pe
 
 ---
 
-## ⚙️ **Requirements**
+## ⚠️ **Before You Run - Important Notes**
 
-### **PowerShell Modules Required**
+### **Execution Policy Warning**
+
+If your system uses `AllSigned` or `Restricted` execution policy, the script will be blocked. Run **one** of the following first:
 
 ```powershell
-# Install required modules if not already installed
-Install-Module Microsoft.Graph -Scope CurrentUser
-Install-Module Az -Scope CurrentUser
+# RECOMMENDED - Bypass for current session only (no permanent change)
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+
+# OR - Unblock just this file
+Unblock-File -Path .\AZ_Permissions-Test.ps1
+
+# OR - Inline bypass
+PowerShell.exe -ExecutionPolicy Bypass -File .\AZ_Permissions-Test.ps1
 ```
 
-### **Permissions to Run This Script**
-
-You need an account with:
-- ✅ Ability to read Azure App Registrations
-- ✅ `Application.Read.All` on Microsoft Graph
-- ✅ `RoleManagement.Read.Directory` on Microsoft Graph
-- ✅ `Directory.Read.All` on Microsoft Graph
-- ✅ Azure Reader role (to check RBAC assignments)
-
-### **Network Requirements**
-- ✅ Internet connectivity to Microsoft Graph API (`graph.microsoft.com`)
-- ✅ Internet connectivity to Azure Management API (`management.azure.com`)
+> The script will detect your execution policy and display these recommendations automatically if needed.
 
 ---
 
-## 🚀 **Usage**
+### **Required PowerShell Modules**
 
-### **Method 1: Standard (Full Authentication)**
+The script requires these modules to be installed:
 
-Connects to Microsoft Graph and Azure automatically using device code:
+| Module | Minimum Version | Purpose |
+|--------|----------------|---------|
+| `Microsoft.Graph` | 2.0.0 | Core Graph SDK |
+| `Microsoft.Graph.Authentication` | 2.0.0 | Graph authentication |
+| `Microsoft.Graph.Applications` | 2.0.0 | Service principal queries |
+| `Microsoft.Graph.Identity.Governance` | 2.0.0 | Entra ID role queries |
+| `Az.Accounts` | 2.0.0 | Azure authentication and RBAC |
+
+> **The script will detect any missing modules and tell you exactly what to install before proceeding.**
+
+---
+
+## 🚀 **Quick Start**
+
+### **Step 1 - Install Required Modules** (first time only)
+
+```powershell
+# Install everything at once
+Install-Module Microsoft.Graph -Scope CurrentUser -Force
+Install-Module Az -Scope CurrentUser -Force
+```
+
+Or let the script install for you:
+
+```powershell
+.\AZ_Permissions-Test.ps1 -Install
+```
+
+> After installing, **restart PowerShell** before running the script.
+
+---
+
+### **Step 2 - Run the Script**
+
+```powershell
+# Standard run - authenticates from scratch
+.\AZ_Permissions-Test.ps1
+
+# Already connected? Skip auth
+.\AZ_Permissions-Test.ps1 -Skip
+```
+
+---
+
+## 📖 **Usage**
+
+### **Method 1: Standard Run**
+
+Connects fresh to Microsoft Graph and Azure:
 
 ```powershell
 .\AZ_Permissions-Test.ps1
 ```
 
-**What happens:**
-1. Opens browser for Microsoft Graph authentication
-2. Opens browser for Azure authentication (device code flow)
-3. Runs all permission checks
-4. Displays summary
+Flow:
+1. ✅ Checks execution policy
+2. ✅ Verifies all required modules
+3. ✅ Opens browser for Microsoft Graph auth
+4. ✅ Device code prompt for Azure auth
+5. ✅ Runs all permission checks
+6. ✅ Displays summary
 
 ---
 
-### **Method 2: Skip Authentication (Already Connected)**
+### **Method 2: Skip Authentication** (`-Skip`)
 
-If you have already run `Connect-AzAccount` and `az login` in your session, skip the auth step:
+Use if you already have active `Connect-MgGraph` and `Connect-AzAccount` sessions:
 
 ```powershell
 .\AZ_Permissions-Test.ps1 -Skip
 ```
 
-**What happens:**
-1. Verifies existing Microsoft Graph session is active
-2. Verifies existing Azure session is active
-3. Skips re-authentication entirely
-4. Runs all permission checks directly
-5. Displays summary
-
-**Use this when:**
-- ✅ You already ran `Connect-AzAccount` in your current session
-- ✅ You already ran `Connect-MgGraph` in your current session
-- ✅ You want to re-run checks without re-authenticating
-- ✅ You are in an automated pipeline with existing auth
-
-**Pre-requisites for `-Skip`:**
+Pre-requisites:
 ```powershell
-# Run these BEFORE using -Skip
+# Run these first, then use -Skip
 Connect-MgGraph -Scopes "Application.Read.All","RoleManagement.Read.Directory","Directory.Read.All"
 Connect-AzAccount
 ```
 
+Use when:
+- ✅ Re-running checks without re-authenticating
+- ✅ Your session is still active
+- ✅ Azure browser/WAM is causing issues
+
 ---
 
-### **Method 3: Custom App Name**
+### **Method 3: Auto-Install Modules** (`-Install`)
 
-Check permissions for a service principal with a different name:
+Let the script install any missing modules automatically:
 
 ```powershell
-.\AZ_Permissions-Test.ps1 -AppName "MyCustomAzureHound"
+.\AZ_Permissions-Test.ps1 -Install
+```
+
+> After installing, restart PowerShell and re-run without `-Install`.
+
+---
+
+### **Method 4: Custom App Name**
+
+Check a service principal with a different name:
+
+```powershell
+.\AZ_Permissions-Test.ps1 -AppName "AzureHound-Production"
 ```
 
 ---
 
-### **Method 4: Specific Tenant**
+### **Method 5: Specific Tenant**
 
 Target a specific Azure tenant:
 
 ```powershell
-.\AZ_Permissions-Test.ps1 -TenantId "your-tenant-id-here"
+.\AZ_Permissions-Test.ps1 -TenantId "00000000-0000-0000-0000-000000000000"
 ```
 
 ---
@@ -126,40 +178,113 @@ Target a specific Azure tenant:
 ### **Combining Parameters**
 
 ```powershell
-# Already connected, check specific app in specific tenant
+# Already connected, checking a named app
 .\AZ_Permissions-Test.ps1 -Skip -AppName "AzureHound-Prod"
 
-# Connect fresh to specific tenant
-.\AZ_Permissions-Test.ps1 -TenantId "00000000-0000-0000-0000-000000000000" -AppName "AzureHound"
+# Fresh connect to specific tenant, auto-install if needed
+.\AZ_Permissions-Test.ps1 -TenantId "00000000-0000-0000-0000-000000000000" -Install
+
+# Full verbose fresh run
+.\AZ_Permissions-Test.ps1 -AppName "AzureHound" -TenantId "00000000-0000-0000-0000-000000000000"
 ```
 
 ---
 
 ## 📊 **Example Output**
 
-### **Standard Run**
+### **First Run - Modules Missing**
 
 ```
-====================================
- AzureHound Permission Validator
-====================================
-App Name:    AzureHound
-Object ID:   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-App ID:      xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+====================================================================
+  AzureHound Permission Validator v1.1
+====================================================================
+
+--- EXECUTION POLICY CHECK ---
+
+  Process Scope:      Bypass
+  LocalMachine Scope: AllSigned
+  CurrentUser Scope:  Undefined
+
+  [WARN] Your execution policy may block unsigned scripts
+
+  RECOMMENDATIONS - run one of these before executing this script:
+
+  Option 1 - Bypass for current session only (RECOMMENDED - no permanent change):
+    Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+
+  Option 2 - Unblock this specific file only:
+    Unblock-File -Path .\AZ_Permissions-Test.ps1
+
+--- PREREQUISITE MODULE CHECK ---
+
+  [MISSING]  Microsoft.Graph                              Not installed
+  [MISSING]  Microsoft.Graph.Authentication               Not installed
+  [MISSING]  Microsoft.Graph.Applications                 Not installed
+  [MISSING]  Microsoft.Graph.Identity.Governance          Not installed
+  [MISSING]  Az.Accounts                                  Not installed
+
+  [!] One or more required modules are missing or outdated
+
+  FIX OPTION 1 - Install everything at once (RECOMMENDED):
+    Install-Module Microsoft.Graph -Scope CurrentUser -Force
+    Install-Module Az -Scope CurrentUser -Force
+
+  FIX OPTION 3 - Let this script install everything for you:
+    .\AZ_Permissions-Test.ps1 -Install
+
+  After installing, restart PowerShell and re-run.
+```
+
+---
+
+### **All Modules Present - Successful Run**
+
+```
+====================================================================
+  AzureHound Permission Validator v1.1
+====================================================================
+
+--- EXECUTION POLICY CHECK ---
+
+  [OK] Execution policy allows script execution
+
+--- PREREQUISITE MODULE CHECK ---
+
+  [OK]       Microsoft.Graph                              v2.25.0
+  [OK]       Microsoft.Graph.Authentication               v2.25.0
+  [OK]       Microsoft.Graph.Applications                 v2.25.0
+  [OK]       Microsoft.Graph.Identity.Governance          v2.25.0
+  [OK]       Az.Accounts                                  v3.0.0
+
+  [OK] All required modules are present
+
+--- AUTHENTICATION ---
+
+  Connecting to Microsoft Graph (browser prompt will open)...
+  [OK] Microsoft Graph connected
+
+  Connecting to Azure (device code - check terminal for URL + code)...
+  [OK] Azure connected
+
+--- LOCATING SERVICE PRINCIPAL ---
+
+  App Name:  AzureHound
+  Object ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  App ID:    xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 === GRAPH API PERMISSIONS ===
 
-Permission                  Type          Consented
---------------------------  -----------   ---------
-Directory.Read.All          Application   True
-RoleManagement.Read.All     Application   True
-AuditLog.Read.All           Application   True
+Permission               Type          Consented
+-----------------------  -----------   ---------
+Directory.Read.All       Application   True
+RoleManagement.Read.All  Application   True
+AuditLog.Read.All        Application   True
 
 === ENTRA ID ROLES ===
 
-Role                Scope  Status
-------------------  -----  ------
-Directory Readers   /      Active
+Role               Status
+-----------------  ------
+Directory Readers  Active
 
 === AZURE RBAC ROLES ===
 
@@ -167,47 +292,17 @@ RoleDefinitionName  Scope
 ------------------  -----
 Reader              /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
-====================================
- PERMISSION SUMMARY
-====================================
-  Graph: Directory.Read.All          [OK]
-  Graph: RoleManagement.Read.All     [OK]
-  Graph: AuditLog.Read.All (optional)[OK]
-  Entra Role: Directory Readers      [OK]
-  Azure RBAC: Reader                 [OK]
-```
+====================================================================
+  PERMISSION SUMMARY
+====================================================================
 
----
+  [OK]      Graph: Directory.Read.All
+  [OK]      Graph: RoleManagement.Read.All
+  [OK]      Graph: AuditLog.Read.All (optional)
+  [OK]      Entra Role: Directory Readers
+  [OK]      Azure RBAC: Reader
 
-### **With -Skip Parameter**
-
-```
-[SKIP] Authentication step bypassed - using existing session
-       Assumes: Connect-AzAccount and az login already completed
-
-Verifying existing sessions...
-  [OK] Microsoft Graph session active - Account: admin@company.com
-  [OK] Azure session active - Account: admin@company.com | Tenant: xxxxxxxx-xxxx
-
-====================================
- AzureHound Permission Validator
-====================================
-...
-```
-
----
-
-### **Missing Permissions**
-
-```
-====================================
- PERMISSION SUMMARY
-====================================
-  Graph: Directory.Read.All          [OK]
-  Graph: RoleManagement.Read.All     [MISSING]
-  Graph: AuditLog.Read.All (optional)[NOT SET]
-  Entra Role: Directory Readers      [OK]
-  Azure RBAC: Reader                 [MISSING]
+  RESULT: All required permissions are configured correctly!
 ```
 
 ---
@@ -216,136 +311,115 @@ Verifying existing sessions...
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `-Skip` | Switch | `$false` | **Skip authentication** - use existing `Connect-AzAccount` / `Connect-MgGraph` session |
-| `-AppName` | String | `"AzureHound"` | Name of the AzureHound service principal / Enterprise Application |
-| `-TenantId` | String | _(auto-detect)_ | Azure Tenant ID to target a specific tenant |
+| `-Skip` | Switch | `$false` | Skip authentication - use existing `Connect-MgGraph` / `Connect-AzAccount` session |
+| `-Install` | Switch | `$false` | Auto-install any missing or outdated required modules |
+| `-AppName` | String | `"AzureHound"` | Name of the AzureHound Enterprise Application in Azure |
+| `-TenantId` | String | _(auto-detect)_ | Target a specific Azure Tenant ID |
 
 ---
 
 ## 🔍 **Troubleshooting**
 
-### **"Service principal not found"**
+### **Modules Not Found After Installing**
 
 ```
-ERROR: Service principal 'AzureHound' not found!
-Make sure you have an App Registration with an associated Enterprise Application.
+Get-Module Microsoft.Graph -ListAvailable
+# Returns nothing
 ```
 
-**Cause:** App Registration name doesn't match
+**Cause:** Module was installed but PowerShell session is stale
 
-**Solution:**
+**Fix:** Restart PowerShell completely and re-run
+
+---
+
+### **`Get-MgRoleManagementDirectoryRoleAssignment` Not Recognized**
+
+**Cause:** `Microsoft.Graph.Identity.Governance` submodule not installed (common with Graph v2)
+
+**Fix:**
 ```powershell
-# Find the correct name
-Get-MgServicePrincipal -Filter "startswith(displayName,'Azure')" | Select DisplayName, Id
-
-# Then run with correct name
-.\AZ_Permissions-Test.ps1 -AppName "YourActualAppName"
+Install-Module Microsoft.Graph.Identity.Governance -Scope CurrentUser -Force
+# Restart PowerShell, then re-run
 ```
 
 ---
 
-### **"No active Microsoft Graph session" when using -Skip**
+### **Azure Credentials Expired / WAM Broker Error**
 
 ```
-[WARN] No active Microsoft Graph session found
-       Run: Connect-MgGraph -Scopes 'Application.Read.All','RoleManagement.Read.Directory','Directory.Read.All'
+Method not found: 'Void Azure.Identity.Broker.SharedTokenCacheCredentialBrokerOptions..ctor'
 ```
 
-**Solution:**
+**Cause:** Version conflict between Az and Azure.Identity.Broker, or expired session
+
+**Fix:**
 ```powershell
-# Connect to Microsoft Graph first
-Connect-MgGraph -Scopes "Application.Read.All","RoleManagement.Read.Directory","Directory.Read.All"
+# Update Az modules
+Update-Module Az -Force
 
-# Then re-run with -Skip
+# Reconnect using device code (bypasses WAM broker)
+$env:AZURE_USE_DEVICE_CODE = "true"
+Update-AzConfig -EnableLoginByWam $false -Scope Process
+Connect-AzAccount -DeviceCode
+
+# Then re-run
 .\AZ_Permissions-Test.ps1 -Skip
 ```
 
 ---
 
-### **"Could not query Azure RBAC"**
+### **Service Principal Not Found**
 
-**Cause:** No active Azure session or insufficient permissions
+```
+[ERROR] Service principal 'AzureHound' not found!
+```
 
-**Solution:**
+**Fix:**
 ```powershell
-# Re-connect to Azure
-Connect-AzAccount
+# Find the correct name
+Get-MgServicePrincipal -Filter "startswith(displayName,'Azure')" | Select DisplayName
 
-# Or for specific tenant
-Connect-AzAccount -TenantId "your-tenant-id"
+# Re-run with correct name
+.\AZ_Permissions-Test.ps1 -AppName "YourActualAppName"
+```
 
-# Or run without -Skip to force fresh authentication
+---
+
+### **Script Blocked by Execution Policy**
+
+```
+File cannot be loaded. The file is not digitally signed.
+```
+
+**Fix:**
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 .\AZ_Permissions-Test.ps1
 ```
 
 ---
 
-### **WAM Broker / Browser Authentication Issues**
-
-If standard authentication hangs or shows browser errors:
-
-```powershell
-# Use -TenantId to force device code flow
-.\AZ_Permissions-Test.ps1 -TenantId "your-tenant-id"
-```
-
-The script already disables WAM broker by default to prevent common authentication issues.
-
----
-
-### **Module Not Found Errors**
-
-```powershell
-# Install Microsoft Graph module
-Install-Module Microsoft.Graph -Scope CurrentUser -Force
-
-# Install Azure PowerShell module
-Install-Module Az -Scope CurrentUser -Force
-
-# Verify installation
-Get-Module Microsoft.Graph -ListAvailable
-Get-Module Az -ListAvailable
-```
-
----
-
-## 📝 **Required Permissions Explained**
-
-### **Graph API Permissions (Application)**
-
-| Permission | Why Needed |
-|-----------|-----------|
-| `Directory.Read.All` | Read all users, groups, and devices in Entra ID |
-| `RoleManagement.Read.All` | Read directory role assignments |
-| `AuditLog.Read.All` | _(Optional)_ Read audit logs for enhanced collection |
-
-### **Entra ID Roles**
-
-| Role | Why Needed |
-|------|-----------|
-| `Directory Readers` | Read basic directory data across Entra ID |
-
-### **Azure RBAC Roles**
-
-| Role | Scope | Why Needed |
-|------|-------|-----------|
-| `Reader` | Subscription | Read Azure resources, subscriptions, and resource groups |
-
----
-
 ## 📚 **Reference**
 
-- **AzureHound Installation**: https://bloodhound.specterops.io/install-data-collector/install-azurehound/azure-configuration
-- **BloodHound Enterprise**: https://bloodhound.specterops.io/
+- **AzureHound Configuration**: https://bloodhound.specterops.io/install-data-collector/install-azurehound/azure-configuration
 - **Microsoft Graph Permissions**: https://learn.microsoft.com/en-us/graph/permissions-reference
-- **Azure RBAC Roles**: https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
+- **Azure RBAC Built-in Roles**: https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
+- **PowerShell Execution Policies**: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies
 
 ---
 
 ## 🎯 **Quick Reference**
 
 ```powershell
-# Fresh run - authenticate from scratch
+# Install modules (first time only)
+Install-Module Microsoft.Graph -Scope CurrentUser -Force
+Install-Module Az -Scope CurrentUser -Force
+
+# OR let the script install them
+.\AZ_Permissions-Test.ps1 -Install
+
+# Standard run
 .\AZ_Permissions-Test.ps1
 
 # Already connected - skip auth
@@ -356,14 +430,8 @@ Get-Module Az -ListAvailable
 
 # Specific tenant
 .\AZ_Permissions-Test.ps1 -TenantId "00000000-0000-0000-0000-000000000000"
-
-# Already connected, custom app
-.\AZ_Permissions-Test.ps1 -Skip -AppName "AzureHound-Prod"
 ```
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: February 2026  
-**Author**: SpecterOps BloodHound Team  
-**Reference**: https://bloodhound.specterops.io/install-data-collector/install-azurehound/azure-configuration
+**Version**: 1.1 | **Last Updated**: February 2026 | **Author**: SpecterOps BloodHound Team
